@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 import threading
 
@@ -26,6 +27,7 @@ from storage import (
 
 app = Flask(__name__)
 init_db()
+IS_VERCEL = bool(os.getenv("VERCEL"))
 
 refresh_lock = threading.Lock()
 refresh_state = {
@@ -165,6 +167,38 @@ def bookmarks_api():
 def refresh_bookmarks_api():
     if not has_runtime_credentials():
         return jsonify({"ok": False, "error": MISSING_CREDENTIALS_MESSAGE}), 400
+
+    if IS_VERCEL:
+        account_key = get_active_account_info()["account_key"]
+        with refresh_lock:
+            refresh_state["running"] = True
+            refresh_state["last_error"] = ""
+            refresh_state["last_started_at"] = datetime.now(timezone.utc).isoformat()
+            refresh_state["last_finished_at"] = None
+            refresh_state["last_account_key"] = account_key
+
+        error_message = ""
+        try:
+            refresh_cache()
+        except Exception as exc:
+            error_message = str(exc)
+
+        with refresh_lock:
+            refresh_state["running"] = False
+            refresh_state["last_error"] = error_message
+            refresh_state["last_finished_at"] = datetime.now(timezone.utc).isoformat()
+
+        if error_message:
+            return jsonify({"ok": False, "error": error_message}), 500
+
+        return jsonify(
+            {
+                "ok": True,
+                "started": True,
+                "running": False,
+                "account": get_active_account_info(),
+            }
+        )
 
     started = start_refresh_job()
     state = get_refresh_state()
