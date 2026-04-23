@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+gcm-diagnose*.log
 
 control.json
 bookmark_atlas.db
