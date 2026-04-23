@@ -1,0 +1,9 @@
+.git
+.venv
+__pycache__
+control.json
+bookmark_atlas.db
+*.sqlite
+*.sqlite3
+*.db
+gcm-diagnose*.log

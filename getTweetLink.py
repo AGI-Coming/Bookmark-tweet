@@ -84,6 +84,17 @@ COOKIE_ENV_MAP = {
 }
 
 
+def get_env_account_config():
+    return {
+        "account_key": os.getenv("X_ACCOUNT_KEY", ""),
+        "owner_username": os.getenv("X_OWNER_USERNAME", ""),
+        "auth_token": os.getenv("X_AUTH_TOKEN", ""),
+        "ct0": os.getenv("X_CT0", ""),
+        "twid": os.getenv("X_TWID", ""),
+        "x_csrf_token": os.getenv("X_CSRF_TOKEN", ""),
+    }
+
+
 def load_control():
     if not CONTROL_FILE.exists():
         return {"active_account": "main", "accounts": {}}
@@ -96,11 +107,16 @@ def load_control():
 
 def get_active_account_config():
     control = load_control()
-    active_account_key = control.get("active_account") or "main"
+    env_account = get_env_account_config()
+    active_account_key = (
+        env_account["account_key"]
+        or control.get("active_account")
+        or "main"
+    )
     accounts = control.get("accounts") or {}
     active_account = accounts.get(active_account_key, {})
 
-    return {
+    account = {
         "account_key": active_account_key,
         "owner_username": active_account.get("owner_username", ""),
         "auth_token": active_account.get("auth_token", ""),
@@ -109,6 +125,12 @@ def get_active_account_config():
         "x_csrf_token": active_account.get("x-csrf-token") or active_account.get("x_csrf_token", ""),
     }
 
+    for key in ["owner_username", "auth_token", "ct0", "twid", "x_csrf_token"]:
+        if env_account[key]:
+            account[key] = env_account[key]
+
+    return account
+
 
 def get_active_account_info():
     account = get_active_account_config()
@@ -116,6 +138,11 @@ def get_active_account_info():
         "account_key": account["account_key"],
         "owner_username": account["owner_username"] or account["account_key"],
     }
+
+
+def has_runtime_credentials():
+    account = get_active_account_config()
+    return bool(account["auth_token"] and account["ct0"])
 
 
 def build_cookies():

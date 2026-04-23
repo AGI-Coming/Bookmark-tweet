@@ -4,7 +4,13 @@ import threading
 import requests
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
-from getTweetLink import export_links_csv, export_links_text, get_active_account_info, scrape_bookmarks
+from getTweetLink import (
+    export_links_csv,
+    export_links_text,
+    get_active_account_info,
+    has_runtime_credentials,
+    scrape_bookmarks,
+)
 from storage import (
     get_bookmark,
     get_bookmarks,
@@ -31,13 +37,21 @@ refresh_state = {
 }
 
 
-def serialize_payload(bookmarks, source, view):
+MISSING_CREDENTIALS_MESSAGE = (
+    "No X credentials are configured for this deployment yet. "
+    "Add X_AUTH_TOKEN, X_CT0, X_TWID, X_CSRF_TOKEN, and optionally X_OWNER_USERNAME "
+    "in Vercel Project Settings, then redeploy."
+)
+
+
+def serialize_payload(bookmarks, source, view, message=""):
     stats = get_dashboard_stats()
     return {
         "ok": True,
         "source": source,
         "view": view,
         "account": get_active_account_info(),
+        "message": message,
         "bookmarks": bookmarks,
         "stats": {
             **stats,
@@ -116,20 +130,42 @@ def bookmarks_api():
     try:
         active_account = get_active_account_info()
         latest_fetch_account_key = get_latest_fetch_account_key()
+        cache_exists = has_cache()
+        can_refresh = has_runtime_credentials()
+        needs_refresh = (not cache_exists) or latest_fetch_account_key != active_account["account_key"]
 
-        if not has_cache() or latest_fetch_account_key != active_account["account_key"]:
+        if needs_refresh and can_refresh:
             bookmarks = refresh_cache()
             return jsonify(serialize_payload(bookmarks, source="live", view="current"))
+
+        if not cache_exists:
+            return jsonify(
+                serialize_payload(
+                    [],
+                    source="empty",
+                    view="current",
+                    message=MISSING_CREDENTIALS_MESSAGE,
+                )
+            )
 
         bookmarks = get_bookmarks(scope="current")
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
-    return jsonify(serialize_payload(bookmarks, source="cache", view="current"))
+    message = ""
+    if not has_runtime_credentials():
+        message = (
+            "Showing cached data only. Configure X credentials in Vercel if you want refreshes to work online."
+        )
+
+    return jsonify(serialize_payload(bookmarks, source="cache", view="current", message=message))
 
 
 @app.post("/api/bookmarks/refresh")
 def refresh_bookmarks_api():
+    if not has_runtime_credentials():
+        return jsonify({"ok": False, "error": MISSING_CREDENTIALS_MESSAGE}), 400
+
     started = start_refresh_job()
     state = get_refresh_state()
     return jsonify(
@@ -274,6 +310,8 @@ def favorite_bookmark_api(tweet_id):
 @app.get("/api/export.txt")
 def export_txt_api():
     if not has_cache():
+        if not has_runtime_credentials():
+            return jsonify({"ok": False, "error": MISSING_CREDENTIALS_MESSAGE}), 400
         refresh_cache()
 
     bookmarks = get_bookmarks(scope="current")
@@ -288,6 +326,8 @@ def export_txt_api():
 @app.get("/api/export.csv")
 def export_csv_api():
     if not has_cache():
+        if not has_runtime_credentials():
+            return jsonify({"ok": False, "error": MISSING_CREDENTIALS_MESSAGE}), 400
         refresh_cache()
 
     bookmarks = get_bookmarks(scope="current")

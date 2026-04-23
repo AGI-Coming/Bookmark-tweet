@@ -39,3 +39,14 @@ python app.py
 - `control.json` is intentionally gitignored so your live cookies stay local.
 - `bookmark_atlas.db` is also gitignored because it contains your personal bookmark data.
 - X may change its internal GraphQL query ID or request format, which can break bookmark fetching until the scraper is updated.
+- On Vercel, the app uses `/tmp/bookmark_atlas.db`, which is temporary storage and does not persist across restarts.
+
+## Vercel
+
+Set these environment variables in your Vercel project before trying to refresh bookmarks online:
+
+- `X_AUTH_TOKEN`
+- `X_CT0`
+- `X_TWID`
+- `X_CSRF_TOKEN`
+- `X_OWNER_USERNAME` (optional, for display only)

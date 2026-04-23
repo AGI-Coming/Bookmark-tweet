@@ -638,6 +638,8 @@ function updateStats() {
         elements.dataMode.textContent = "Database search view from local SQLite cache";
     } else if (state.view === "favorites") {
         elements.dataMode.textContent = "Favorite bookmarks saved in local SQLite cache";
+    } else if (state.source === "empty") {
+        elements.dataMode.textContent = "Vercel deployment is ready, but X credentials are not configured yet";
     } else if (state.source === "live") {
         elements.dataMode.textContent = "Fresh pull from X saved into local cache";
     } else {
@@ -668,6 +670,11 @@ function applyPayload(payload, statusMessage) {
     state.view = payload.view;
     state.source = payload.source;
     state.account = payload.account || null;
+    if (payload.message) {
+        showMessage(payload.message);
+    } else {
+        hideMessage();
+    }
     resetRenderWindow();
     renderBookmarks();
     updateStats();
@@ -695,7 +702,12 @@ async function loadCurrentBookmarks() {
 
     try {
         const payload = await requestJson(isFavoritesPage ? "/api/favorites" : "/api/bookmarks");
-        const sourceLabel = payload.source === "live" ? "freshly fetched" : "cached";
+        let sourceLabel = "cached";
+        if (payload.source === "live") {
+            sourceLabel = "freshly fetched";
+        } else if (payload.source === "empty") {
+            sourceLabel = "without configured X credentials";
+        }
         applyPayload(
             payload,
             isFavoritesPage

@@ -1,8 +1,15 @@
+import os
 import sqlite3
 from pathlib import Path
 
 
-DB_PATH = Path(__file__).with_name("bookmark_atlas.db")
+DEFAULT_DB_PATH = Path(__file__).with_name("bookmark_atlas.db")
+DB_PATH = Path(
+    os.getenv(
+        "BOOKMARK_ATLAS_DB_PATH",
+        "/tmp/bookmark_atlas.db" if os.getenv("VERCEL") else str(DEFAULT_DB_PATH),
+    )
+)
 
 
 def get_connection():
