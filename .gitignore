@@ -10,3 +10,5 @@ bookmark_atlas.db
 *.db
 
 .DS_Store
+
+.vercel
