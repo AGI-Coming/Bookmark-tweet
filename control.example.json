@@ -1,0 +1,12 @@
+{
+  "active_account": "main",
+  "accounts": {
+    "main": {
+      "owner_username": "your_x_username",
+      "auth_token": "",
+      "ct0": "",
+      "twid": "",
+      "x-csrf-token": ""
+    }
+  }
+}

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmark Atlas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="page-{{ page_mode }}" data-page-mode="{{ page_mode }}">
+    <div class="page-shell">
+        <div class="orb orb-one"></div>
+        <div class="orb orb-two"></div>
+
+        <header class="hero card">
+            <div>
+                <p class="eyebrow">Personal X Bookmark Dashboard</p>
+                <h1>Bookmark Atlas</h1>
+                <p class="hero-copy">
+                    A cleaner view of your saved posts with quick exports, search, and link tools.
+                </p>
+            </div>
+
+            <div class="hero-actions">
+                <button id="refreshButton" class="button button-primary" type="button">Refresh Bookmarks</button>
+                <a class="button button-secondary" href="/api/export.csv">Export CSV</a>
+                <a class="button button-secondary" href="/api/export.txt">Export TXT</a>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <section class="panel panel-wide">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Overview</p>
+                        <h2>Your Bookmark Stack</h2>
+                    </div>
+                    <p id="statusText" class="status-pill">Ready</p>
+                </div>
+
+                <div class="stats-grid">
+                    <article class="stat-card">
+                        <span>Loaded</span>
+                        <strong id="totalCount">0</strong>
+                    </article>
+                    <article class="stat-card">
+                        <span>Visible</span>
+                        <strong id="visibleCount">0</strong>
+                    </article>
+                    <article class="stat-card">
+                        <span>Authors</span>
+                        <strong id="authorCount">0</strong>
+                    </article>
+                    <article class="stat-card">
+                        <span>Pages Scanned</span>
+                        <strong id="pageCount">0</strong>
+                    </article>
+                </div>
+
+                <div class="toolbar">
+                    <label class="field">
+                        <span>Search</span>
+                        <input id="searchInput" type="search" placeholder="Find by author, text, tweet id, or link">
+                    </label>
+
+                    {% if page_mode in ['all-bookmarks', 'favorites'] %}
+                    <div class="field field-toggle field-view-toggle">
+                        <span>View Mode</span>
+                        <div class="time-order" role="tablist" aria-label="View Mode">
+                            <button class="time-order-button is-active" type="button" data-layout-mode="card">Card</button>
+                            <button class="time-order-button" type="button" data-layout-mode="list">List</button>
+                        </div>
+                    </div>
+
+                    <label class="field field-compact">
+                        <span>Items Per Row</span>
+                        <input id="itemsPerRowInput" type="number" min="1" max="8" value="5">
+                    </label>
+                    {% endif %}
+
+                    <div class="field field-toggle">
+                        <span>Timeline Order</span>
+                        <div class="time-order" role="tablist" aria-label="Timeline Order">
+                            <button class="time-order-button is-active" type="button" data-time-order="newest">Newest</button>
+                            <button class="time-order-button" type="button" data-time-order="oldest">Oldest</button>
+                        </div>
+                    </div>
+
+                    <label class="field field-small">
+                        <span>Arrange</span>
+                        <select id="sortSelect">
+                            <option value="timeline">Timeline</option>
+                            <option value="author">Author A-Z</option>
+                            <option value="tweet">Tweet ID</option>
+                        </select>
+                    </label>
+
+                    <a
+                        id="showAllBookmarksButton"
+                        class="button button-secondary"
+                        href="{{ '/all-bookmarks' if page_mode not in ['all-bookmarks', 'favorites'] else '/' }}"
+                    >{{ 'Show All Bookmarks Page' if page_mode not in ['all-bookmarks', 'favorites'] else 'Back To Dashboard' }}</a>
+                    <a
+                        id="showFavoritesPageButton"
+                        class="button button-secondary"
+                        href="{{ '/favorites' if page_mode != 'favorites' else '/' }}"
+                    >{{ 'Favorites Page' if page_mode != 'favorites' else 'Back To Dashboard' }}</a>
+                    <button id="copyVisibleButton" class="button button-secondary" type="button">Copy Visible Links</button>
+                </div>
+
+                <div id="messageBanner" class="message-banner hidden"></div>
+                <div id="bookmarksGrid" class="bookmarks-grid"></div>
+                <div id="emptyState" class="empty-state hidden">
+                    <h3>No bookmarks match this filter</h3>
+                    <p>Try another search or refresh the data from X.</p>
+                </div>
+            </section>
+
+            <aside class="sidebar">
+                <section class="panel">
+                    <div class="panel-header compact">
+                        <div>
+                            <p class="eyebrow">Tools</p>
+                            <h2>Quick Actions</h2>
+                        </div>
+                    </div>
+
+                    <div class="tool-list">
+                        <button id="openFirstButton" class="button button-secondary" type="button">Open First Result</button>
+                        <button id="copyAuthorsButton" class="button button-secondary" type="button">Copy Author List</button>
+                        <button id="downloadVisibleButton" class="button button-secondary" type="button">Download Visible CSV</button>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header compact">
+                        <div>
+                            <p class="eyebrow">Snapshot</p>
+                            <h2>Session Notes</h2>
+                        </div>
+                    </div>
+
+                    <dl class="meta-list">
+                        <div>
+                            <dt>Last Refresh</dt>
+                            <dd id="fetchedAt">Not fetched yet</dd>
+                        </div>
+                        <div>
+                            <dt>Active Account</dt>
+                            <dd id="activeAccount">-</dd>
+                        </div>
+                        <div>
+                            <dt>Owner Username</dt>
+                            <dd id="ownerUsername">-</dd>
+                        </div>
+                        <div>
+                            <dt>Favorites</dt>
+                            <dd id="favoriteCount">0</dd>
+                        </div>
+                        <div>
+                            <dt>Top Author</dt>
+                            <dd id="topAuthor">-</dd>
+                        </div>
+                        <div>
+                            <dt>Library Size</dt>
+                            <dd id="libraryCount">0</dd>
+                        </div>
+                        <div>
+                            <dt>Tagged Tweets</dt>
+                            <dd id="taggedCount">0</dd>
+                        </div>
+                        <div>
+                            <dt>Mode</dt>
+                            <dd id="dataMode">Cached local library with X refresh</dd>
+                        </div>
+                    </dl>
+                </section>
+
+                <section class="panel">
+                    <div class="panel-header compact">
+                        <div>
+                            <p class="eyebrow">Library Search</p>
+                            <h2>Database View</h2>
+                        </div>
+                    </div>
+
+                    <div class="tool-list">
+                        <label class="field">
+                            <span>Search Text</span>
+                            <input id="libraryQueryInput" type="search" placeholder="Search cached tweet text, user, id">
+                        </label>
+
+                        <label class="field">
+                            <span>Tag</span>
+                            <input id="libraryTagInput" type="search" placeholder="ai, tutorial, design">
+                        </label>
+
+                        <label class="field">
+                            <span>Media</span>
+                            <select id="libraryMediaSelect">
+                                <option value="">Any media</option>
+                                <option value="image">Image</option>
+                                <option value="video">Video</option>
+                                <option value="animated_gif">GIF</option>
+                                <option value="none">No media</option>
+                            </select>
+                        </label>
+
+                        <label class="field">
+                            <span>Scope</span>
+                            <select id="libraryScopeSelect">
+                                <option value="all">Full library</option>
+                                <option value="current">Current bookmarks only</option>
+                            </select>
+                        </label>
+
+                        <button id="runLibrarySearchButton" class="button button-secondary" type="button">Search Library</button>
+                        <button id="showCurrentButton" class="button button-secondary" type="button">Show Current Cache</button>
+                    </div>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <template id="bookmarkCardTemplate">
+        <article class="bookmark-card card">
+            <div class="bookmark-media-shell">
+                <img class="bookmark-media hidden" alt="Tweet media thumbnail">
+                <div class="bookmark-media-fallback">
+                    <span class="bookmark-media-label">No media</span>
+                    <strong class="bookmark-media-author"></strong>
+                </div>
+                <div class="bookmark-media-overlay">
+                    <button class="bookmark-favorite-button button button-secondary" type="button">Favorite</button>
+                    <span class="bookmark-video-indicator hidden" aria-hidden="true">
+                        <span class="play-glyph"></span>
+                    </span>
+                    <button class="bookmark-media-button button button-secondary" type="button">View Media</button>
+                </div>
+            </div>
+            <div class="bookmark-card-top">
+                <div>
+                    <span class="bookmark-index"></span>
+                    <h3 class="bookmark-name"></h3>
+                </div>
+                <span class="bookmark-author"></span>
+            </div>
+            <div class="bookmark-meta-row">
+                <span class="bookmark-date"></span>
+                <span class="bookmark-badge hidden"></span>
+            </div>
+            <div class="bookmark-tags"></div>
+            <p class="bookmark-id"></p>
+            <p class="bookmark-text"></p>
+            <div class="bookmark-actions">
+                <a class="bookmark-link button button-secondary" target="_blank" rel="noreferrer noopener">Open on X</a>
+                <button class="bookmark-embed-button button button-secondary" type="button">Show Embed</button>
+            </div>
+            <div class="bookmark-embed hidden"></div>
+        </article>
+    </template>
+
+    <div id="previewModal" class="preview-modal hidden" aria-hidden="true">
+        <div class="preview-backdrop" data-close-modal="true"></div>
+        <div class="preview-dialog card" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+            <button id="closeModalButton" class="preview-close button button-secondary" type="button">Close</button>
+
+            <div class="preview-media-shell">
+                <img id="previewImage" class="preview-media hidden" alt="Tweet preview media">
+                <video id="previewVideo" class="preview-media hidden" controls playsinline></video>
+                <div id="previewFallback" class="preview-media-fallback">
+                    <span class="bookmark-media-label">Preview</span>
+                    <strong id="previewFallbackAuthor"></strong>
+                </div>
+            </div>
+
+            <div class="preview-content">
+                <p id="previewHandle" class="preview-handle"></p>
+                <h2 id="previewTitle"></h2>
+                <p id="previewDate" class="preview-date"></p>
+                <div class="preview-summary-row">
+                    <span id="previewOwnerChip" class="tag-chip tag-chip-muted">Owner</span>
+                    <span id="previewMediaChip" class="tag-chip tag-chip-muted hidden">Media</span>
+                    <button id="previewOpenMediaButton" class="button button-secondary hidden" type="button">Open Video Viewer</button>
+                    <a id="previewRawVideoLink" class="button button-secondary hidden" target="_blank" rel="noreferrer noopener">Open Raw Video</a>
+                </div>
+                <p id="previewText" class="preview-text"></p>
+
+                <label class="field">
+                    <span>Tags</span>
+                    <input id="previewTagsInput" type="text" placeholder="ai, read-later, video">
+                </label>
+                <div class="preview-actions">
+                    <button id="previewFavoriteButton" class="button button-secondary" type="button">Favorite</button>
+                    <button id="saveTagsButton" class="button button-secondary" type="button">Save Tags</button>
+                    <a id="previewOpenLink" class="button button-primary" target="_blank" rel="noreferrer noopener">Open on X</a>
+                </div>
+                <p id="previewTagStatus" class="preview-tag-status hidden"></p>
+
+                <div id="previewEmbed" class="preview-embed"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mediaViewerModal" class="media-viewer-modal hidden" aria-hidden="true">
+        <div class="media-viewer-backdrop" data-close-media-viewer="true"></div>
+        <div class="media-viewer-dialog card" role="dialog" aria-modal="true" aria-labelledby="mediaViewerTitle">
+            <button id="closeMediaViewerButton" class="preview-close button button-secondary" type="button">Close</button>
+            <div class="media-viewer-stage">
+                <img id="mediaViewerImage" class="media-viewer-image hidden" alt="Bookmark media viewer image">
+                <video id="mediaViewerVideo" class="media-viewer-video hidden" controls playsinline></video>
+                <div id="mediaViewerFallback" class="preview-media-fallback">
+                    <span class="bookmark-media-label">No media</span>
+                    <strong id="mediaViewerFallbackAuthor"></strong>
+                </div>
+            </div>
+            <div class="media-viewer-footer">
+                <div>
+                    <p id="mediaViewerHandle" class="preview-handle"></p>
+                    <h2 id="mediaViewerTitle"></h2>
+                </div>
+                <div class="preview-actions media-viewer-actions">
+                    <button id="mediaViewerDetailsButton" class="button button-secondary" type="button">Show Details</button>
+                    <a id="mediaViewerOpenLink" class="button button-primary" target="_blank" rel="noreferrer noopener">Open on X</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
