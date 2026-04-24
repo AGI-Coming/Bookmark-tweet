@@ -40,9 +40,9 @@ refresh_state = {
 
 
 MISSING_CREDENTIALS_MESSAGE = (
-    "No X credentials are configured for this deployment yet. "
-    "Add X_AUTH_TOKEN, X_CT0, X_TWID, X_CSRF_TOKEN, and optionally X_OWNER_USERNAME "
-    "in Vercel Project Settings, then redeploy."
+    "No X credentials are configured yet. "
+    "Set X_AUTH_TOKEN, X_CT0, X_TWID, X_CSRF_TOKEN, and optionally X_OWNER_USERNAME "
+    "in .env, system environment variables, or Vercel Project Settings."
 )
 
 
@@ -157,7 +157,7 @@ def bookmarks_api():
     message = ""
     if not has_runtime_credentials():
         message = (
-            "Showing cached data only. Configure X credentials in Vercel if you want refreshes to work online."
+            "Showing cached data only. Add the X_* credentials in .env or Vercel if you want refreshes to work."
         )
 
     return jsonify(serialize_payload(bookmarks, source="cache", view="current", message=message))

@@ -6,9 +6,24 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import requests
+from dotenv import load_dotenv
 
 
-CONTROL_FILE = Path(__file__).with_name("control.json")
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
+CONTROL_FILE = Path(
+    os.getenv(
+        "BOOKMARK_ATLAS_CONTROL_FILE",
+        str(BASE_DIR / "control.json"),
+    )
+)
+CONTROL_FILE_DISABLED = os.getenv("BOOKMARK_ATLAS_DISABLE_CONTROL_FILE", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 DEFAULT_COOKIES = {
     "auth_token":           "",
@@ -96,6 +111,9 @@ def get_env_account_config():
 
 
 def load_control():
+    if CONTROL_FILE_DISABLED:
+        return {"active_account": "main", "accounts": {}}
+
     if not CONTROL_FILE.exists():
         return {"active_account": "main", "accounts": {}}
 

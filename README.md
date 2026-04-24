@@ -18,13 +18,14 @@ A small Flask app for viewing, searching, tagging, and exporting your saved X/Tw
 pip install -r requirements.txt
 ```
 
-2. Copy `control.example.json` to `control.json`.
+2. Copy `.env.example` to `.env`.
 
-3. Fill in your own X account values in `control.json`:
-   - `auth_token`
-   - `ct0`
-   - `twid`
-   - `x-csrf-token`
+3. Fill in your own X account values in `.env`:
+   - `X_AUTH_TOKEN`
+   - `X_CT0`
+   - `X_TWID`
+   - `X_CSRF_TOKEN`
+   - `X_OWNER_USERNAME` (optional)
 
 4. Run the app:
 
@@ -36,7 +37,11 @@ python app.py
 
 ## Notes
 
+- `.env` is now the preferred local configuration file and is gitignored.
 - `control.json` is intentionally gitignored so your live cookies stay local.
+- `control.json` is still supported as a fallback if you prefer it.
+- You can point to a different control file with `BOOKMARK_ATLAS_CONTROL_FILE`.
+- You can disable control-file loading entirely with `BOOKMARK_ATLAS_DISABLE_CONTROL_FILE=1`.
 - `bookmark_atlas.db` is also gitignored because it contains your personal bookmark data.
 - X may change its internal GraphQL query ID or request format, which can break bookmark fetching until the scraper is updated.
 - On Vercel, the app uses `/tmp/bookmark_atlas.db`, which is temporary storage and does not persist across restarts.
